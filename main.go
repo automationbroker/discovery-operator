@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 
 	"github.com/automationbroker/bundle-lib/apb"
 	"github.com/automationbroker/bundle-lib/clients"
@@ -474,11 +475,22 @@ func getLinks(metadata map[string]interface{}) []csv.AppLink {
 			continue
 		}
 		links = append(links, csv.AppLink{
-			Name: k,
+			Name: camelToTitle(k),
 			URL:  stringified,
 		})
 	}
 	return links
+}
+
+func camelToTitle(s string) string {
+	ret := []string{}
+	for _, r := range s {
+		if r == unicode.ToUpper(r) {
+			ret = append(ret, " ")
+		}
+		ret = append(ret, string(r))
+	}
+	return strings.Title(strings.Join(ret, ""))
 }
 
 func getIcon(spec *apb.Spec) csv.Icon {
