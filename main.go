@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -406,6 +407,15 @@ func addIDForPlan(plans []apb.Plan, FQSpecName string) {
 	}
 }
 
+func getAPBMeta(meta map[string]interface{}, key string, fallback string) string {
+	switch meta[key] {
+	case nil:
+		return fallback
+	default:
+		return fmt.Sprintf("%s", meta[key])
+	}
+}
+
 func PlanToCSV(plan apb.Plan, spec *apb.Spec, crd v1beta1.CustomResourceDefinition) csv.ClusterServiceVersion {
 	var specVersion *semver.Version
 	specVersion, err := semver.NewVersion(spec.Version)
@@ -414,7 +424,8 @@ func PlanToCSV(plan apb.Plan, spec *apb.Spec, crd v1beta1.CustomResourceDefiniti
 	}
 
 	csvName := fmt.Sprintf("%s.%s", spec.FQName, plan.Name)
-	displayName := spec.Metadata["displayName"].(string)
+	displayName := fmt.Sprintf("%s: %s plan", getAPBMeta(spec.Metadata, "displayName", spec.FQName), plan.Name)
+	description := getAPBMeta(spec.Metadata, "longDescription", spec.Description)
 
 	return csv.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
@@ -430,16 +441,16 @@ func PlanToCSV(plan apb.Plan, spec *apb.Spec, crd v1beta1.CustomResourceDefiniti
 		},
 		Spec: csv.ClusterServiceVersionSpec{
 			DisplayName: displayName,
-			Description: spec.Description,
+			Description: description,
 			Keywords:    spec.Tags,
 			Maintainers: []csv.Maintainer{}, //TODO
 			Version:     *specVersion,
-			Maturity:    "alpha", //TODO
+			Maturity:    "alpha",
 			Provider: csv.AppLink{
 				Name: "Automation Broker",
 				URL:  "automationbroker.io",
 			},
-			Links: []csv.AppLink{}, //TODO
+			Links: getLinks(spec.Metadata),
 			Icon:  []csv.Icon{getIcon(spec)},
 			InstallStrategy: csv.NamedInstallStrategy{
 				StrategyName:    "deployment",
@@ -450,6 +461,24 @@ func PlanToCSV(plan apb.Plan, spec *apb.Spec, crd v1beta1.CustomResourceDefiniti
 			},
 		},
 	}
+}
+
+func getLinks(metadata map[string]interface{}) []csv.AppLink {
+	links := []csv.AppLink{}
+
+	for k, v := range metadata {
+		stringified := fmt.Sprintf("%v", v)
+		_, err := url.ParseRequestURI(stringified)
+		if err != nil {
+			// assume this is not a link
+			continue
+		}
+		links = append(links, csv.AppLink{
+			Name: k,
+			URL:  stringified,
+		})
+	}
+	return links
 }
 
 func getIcon(spec *apb.Spec) csv.Icon {
@@ -463,6 +492,7 @@ func getIcon(spec *apb.Spec) csv.Icon {
 func CRDToCSVCRD(crd v1beta1.CustomResourceDefinition) csv.CRDDescription {
 	return csv.CRDDescription{
 		Name:            crd.ObjectMeta.Name,
+		DisplayName:     crd.Spec.Names.Kind,
 		Version:         crd.Spec.Version,
 		Kind:            crd.Spec.Names.Kind,
 		SpecDescriptors: JSONSchemasToSpecDescriptors(crd.Spec.Validation.OpenAPIV3Schema),
