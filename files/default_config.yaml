@@ -1,0 +1,9 @@
+registry:
+- auth_name: ''
+  auth_type: ''
+  name: dh
+  org: ansibleplaybookbundle
+  tag: latest
+  type: dockerhub
+  url: null
+  white_list: [.*]
