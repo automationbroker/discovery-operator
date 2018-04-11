@@ -8,6 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -22,6 +26,7 @@ import (
 	"github.com/automationbroker/config"
 	"github.com/coreos/go-semver/semver"
 	"github.com/ghodss/yaml"
+	"github.com/nfnt/resize"
 	"k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,12 +41,15 @@ const (
 	// fqNameRegex - regular expression used when forming FQName.
 	fqNameRegex      = "[/.:-]"
 	apbOperatorImage = "docker.io/shurley/lostromos:canary"
+	defaultAPBIcon   = "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"
 )
 
 // Args - Command line arguments for the ansible service broker.
 type Args struct {
 	ConfigFile string `short:"c" long:"config" description:"Config File" default:"/etc/discovery-operator/config.yaml"`
 	Interval   string `short:"t" long:"interval" description:"Interval between catalog syncs" default:"5m"`
+	ConfigMap  string `short:"m" long:"configmap" description:"The name of the ConfigMap to store the Specs" default:"tectonic-ocs"`
+	Namespace  string `short:"n" long:"namespace" description:"The namespace of the ConfigMap to store the Specs" default:"tectonic-system"`
 }
 
 func main() {
@@ -113,7 +121,7 @@ func doMain(args Args) {
 		log.Info("Client instantiated successfully")
 	}
 
-	err = writeSpecsToConfigmap(k8scli, "tectonic-system", "tectonic-ocs", clusterServiceVersions, customResourceDefinitions)
+	err = writeSpecsToConfigmap(k8scli, args.Namespace, args.ConfigMap, clusterServiceVersions, customResourceDefinitions)
 	// err = writeSpecsToConfigmap(k8scli, "openshift-ansible-service-broker", "apbconfigmap", clusterServiceVersions, customResourceDefinitions)
 	if err != nil {
 		log.Error("Failed to write configmap")
@@ -256,8 +264,9 @@ func writeSpecsToConfigmap(k8scli *clients.KubernetesClient, namespace string, n
 	}
 	response, err = k8scli.Client.CoreV1().ConfigMaps(namespace).Create(&cm)
 	if err != nil {
-		existing, err := k8scli.Client.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
-		if err != nil {
+		existing, innerErr := k8scli.Client.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+		if innerErr != nil {
+			// Don't really care if get failed
 			return err
 		}
 		response, err = k8scli.Client.CoreV1().ConfigMaps(namespace).Update(mergeCMs(existing, &cm))
@@ -289,6 +298,7 @@ func mergeCMs(cm1 *v1.ConfigMap, cm2 *v1.ConfigMap) *v1.ConfigMap {
 		found := false
 		for j, csv1 := range cm1CSVs {
 			if csv1.ObjectMeta.Name == csv2.ObjectMeta.Name {
+				// TODO: I think we need to version these
 				log.Infof("Replacing ClusterServiceVersion %s in ConfigMap", csv2.ObjectMeta.Name)
 				cm1CSVs[j] = csv2
 				found = true
@@ -438,6 +448,7 @@ func PlanToCSV(plan apb.Plan, spec *apb.Spec, crd v1beta1.CustomResourceDefiniti
 			Namespace: "placeholder",
 			Annotations: map[string]string{
 				"tectonic-visibility": "ocs", //TODO
+				"alm-examples":        generateExample(crd),
 			},
 		},
 		Spec: csv.ClusterServiceVersionSpec{
@@ -494,9 +505,54 @@ func camelToTitle(s string) string {
 }
 
 func getIcon(spec *apb.Spec) csv.Icon {
-	return csv.Icon{
-		Data:      "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",
+	defaultReturn := csv.Icon{
+		Data:      defaultAPBIcon,
 		MediaType: "image/png",
+	}
+	imageURL := getAPBMeta(spec.Metadata, "imageUrl", "")
+	log.Infof("Pulling image from %s", imageURL)
+	response, err := http.Get(imageURL)
+	if err != nil {
+		return defaultReturn
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(response.Body)
+	contentType := http.DetectContentType(buf.Bytes())
+	log.Infof("Image was parsed as %s", contentType)
+
+	imageContent, _, err := image.Decode(buf)
+	if err != nil {
+		log.Info(err.Error())
+		return defaultReturn
+	}
+	resizedImage := resize.Thumbnail(48, 48, imageContent, resize.Lanczos3)
+	imageBuffer := new(bytes.Buffer)
+
+	switch contentType {
+	case "image/jpeg":
+		err = jpeg.Encode(imageBuffer, resizedImage, nil)
+		if err != nil {
+			panic(err)
+			log.Info(err)
+			return defaultReturn
+		}
+	case "image/png":
+		err = png.Encode(imageBuffer, resizedImage)
+		if err != nil {
+			panic(err)
+			log.Info(err)
+			return defaultReturn
+		}
+	default:
+		log.Infof("Received Image of type %s, cannot parse", contentType)
+		return defaultReturn
+	}
+
+	content := imageBuffer.Bytes()
+
+	return csv.Icon{
+		Data:      base64.StdEncoding.EncodeToString(content),
+		MediaType: contentType,
 	}
 }
 
@@ -522,6 +578,28 @@ func JSONSchemasToSpecDescriptors(schema *v1beta1.JSONSchemaProps) []csv.SpecDes
 		})
 	}
 	return descriptors
+}
+
+func generateExample(crd v1beta1.CustomResourceDefinition) string {
+	parameters := map[string]string{}
+	for k, _ := range crd.Spec.Validation.OpenAPIV3Schema.Properties {
+		parameters[k] = ""
+	}
+	definition := []map[string]interface{}{{
+		"apiVersion": fmt.Sprintf("%s/%s", crd.Spec.Group, crd.Spec.Version),
+		"kind":       crd.Spec.Names.Kind,
+		"metadata": map[string]string{
+			"name":      "example",
+			"namespace": "placeholder",
+		},
+		"spec": parameters,
+	}}
+
+	ret, err := json.Marshal(definition)
+	if err != nil {
+		return ""
+	}
+	return string(ret)
 }
 
 func PlanToCRD(spec *apb.Spec, plan apb.Plan) v1beta1.CustomResourceDefinition {
