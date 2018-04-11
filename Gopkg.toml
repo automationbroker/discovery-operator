@@ -30,17 +30,5 @@
   unused-packages = true
 
 [[constraint]]
-  name = "github.com/automationbroker/bundle-lib"
-  version = "0.1.1"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/automationbroker/config"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/coreos-inc/alm"
-
-[[constraint]]
-  name = "github.com/ghodss/yaml"
-  version = "1.0.0"
+  revision = "32d9e2e421b7978291c5beb498a356f6b852217a"
