@@ -510,7 +510,7 @@ func getIcon(spec *apb.Spec) csv.Icon {
 		MediaType: "image/png",
 	}
 	imageURL := getAPBMeta(spec.Metadata, "imageUrl", "")
-	log.Infof("Pulling image from %s", imageURL)
+	log.Debugf("Pulling image from %s", imageURL)
 	response, err := http.Get(imageURL)
 	if err != nil {
 		return defaultReturn
@@ -518,7 +518,7 @@ func getIcon(spec *apb.Spec) csv.Icon {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
 	contentType := http.DetectContentType(buf.Bytes())
-	log.Infof("Image was parsed as %s", contentType)
+	log.Debugf("Image was parsed as %s", contentType)
 
 	imageContent, _, err := image.Decode(buf)
 	if err != nil {
@@ -532,14 +532,12 @@ func getIcon(spec *apb.Spec) csv.Icon {
 	case "image/jpeg":
 		err = jpeg.Encode(imageBuffer, resizedImage, nil)
 		if err != nil {
-			panic(err)
 			log.Info(err)
 			return defaultReturn
 		}
 	case "image/png":
 		err = png.Encode(imageBuffer, resizedImage)
 		if err != nil {
-			panic(err)
 			log.Info(err)
 			return defaultReturn
 		}
