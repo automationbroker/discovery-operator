@@ -23,6 +23,9 @@ spec:
     spec:
       containers:
       - image: docker.io/fabianvf/discovery-operator
+        args:
+          - "-t"
+          - "30m"
         imagePullPolicy: Always
         name: discovery-operator
         terminationMessagePath: /dev/termination-log
